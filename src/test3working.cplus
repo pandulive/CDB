@@ -1,0 +1,74 @@
+#include <gtkmm.h>
+#include <iostream>
+
+class LoginPage : public Gtk::Box {
+public:
+    LoginPage() : Gtk::Box(Gtk::ORIENTATION_VERTICAL) {
+        set_spacing(10);
+
+        // Username and password fields
+        add(username_label);
+        username_label.set_text("Username:");
+        add(username_entry);
+
+        add(password_label);
+        password_label.set_text("Password:");
+        add(password_entry);
+        password_entry.set_visibility(false);
+
+        // Login button
+        login_button.set_label("Login");
+        login_button.signal_clicked().connect(
+            sigc::mem_fun(*this, &LoginPage::on_login_clicked));
+        add(login_button);
+
+        std::cout << "[DEBUG] LoginPage created." << std::endl;
+    }
+
+private:
+    Gtk::Label username_label;
+    Gtk::Entry username_entry;
+    Gtk::Label password_label;
+    Gtk::Entry password_entry;
+    Gtk::Button login_button;
+
+    void on_login_clicked() {
+        std::string username = username_entry.get_text();
+        std::string password = password_entry.get_text();
+
+        std::cout << "[DEBUG] Login clicked. Username: " << username
+                  << ", Password: " << password << std::endl;
+
+        if (username == "admin" && password == "password") {
+            std::cout << "[DEBUG] Login successful!" << std::endl;
+        } else {
+            std::cerr << "[DEBUG] Login failed!" << std::endl;
+        }
+    }
+};
+
+class MainWindow : public Gtk::Window {
+public:
+    MainWindow() {
+        set_title("Main Application");
+        set_default_size(800, 600);
+
+        // Add login page
+        add(login_page);
+        login_page.show_all();
+
+        std::cout << "[DEBUG] MainWindow created with LoginPage." << std::endl;
+    }
+
+private:
+    LoginPage login_page;
+};
+
+int main(int argc, char* argv[]) {
+    auto app = Gtk::Application::create(argc, argv, "org.gtkmm.example");
+
+    MainWindow main_window;
+    std::cout << "[DEBUG] MainWindow instance created." << std::endl;
+
+    return app->run(main_window);
+}

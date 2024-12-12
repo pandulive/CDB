@@ -1,0 +1,121 @@
+#include <gtkmm.h>
+#include <sqlite3.h>
+#include <iostream>
+#include <string>
+
+// Function to validate user credentials
+bool validate_user(const std::string& username, const std::string& password, std::string& role) {
+    sqlite3* db;
+    sqlite3_stmt* stmt;
+    int rc = sqlite3_open("users.db", &db);
+
+    if (rc != SQLITE_OK) {
+        std::cerr << "Cannot open database: " << sqlite3_errmsg(db) << std::endl;
+        sqlite3_close(db);
+        return false;
+    }
+
+    std::string query = "SELECT role FROM users WHERE username = ? AND password = ?";
+    rc = sqlite3_prepare_v2(db, query.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        sqlite3_close(db);
+        return false;
+    }
+
+    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, password.c_str(), -1, SQLITE_STATIC);
+
+    bool valid = false;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        role = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        valid = true;
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+
+    return valid;
+}
+
+// LoginWindow class
+class LoginWindow : public Gtk::Window {
+public:
+    LoginWindow() {
+        set_title("Login");
+        set_default_size(300, 200);
+
+        vbox.set_spacing(10);
+        add(vbox);
+
+        // Username Entry
+        lbl_username.set_text("Username:");
+        vbox.pack_start(lbl_username, Gtk::PACK_SHRINK);
+        vbox.pack_start(entry_username, Gtk::PACK_SHRINK);
+
+        // Password Entry
+        lbl_password.set_text("Password:");
+        vbox.pack_start(lbl_password, Gtk::PACK_SHRINK);
+        entry_password.set_visibility(false);
+        vbox.pack_start(entry_password, Gtk::PACK_SHRINK);
+
+        // Login Button
+        btn_login.set_label("Login");
+        btn_login.signal_clicked().connect(sigc::mem_fun(*this, &LoginWindow::on_login_clicked));
+        vbox.pack_start(btn_login, Gtk::PACK_SHRINK);
+
+        show_all_children();
+    }
+
+private:
+    Gtk::Box vbox{Gtk::ORIENTATION_VERTICAL};
+    Gtk::Label lbl_username;
+    Gtk::Label lbl_password;
+    Gtk::Entry entry_username;
+    Gtk::Entry entry_password;
+    Gtk::Button btn_login;
+
+    void on_login_clicked() {
+        std::string username = entry_username.get_text();
+        std::string password = entry_password.get_text();
+        std::string role;
+
+        if (validate_user(username, password, role)) {
+            std::string message = "Welcome, " + username + "! You are logged in as " + role + ".";
+            Gtk::MessageDialog dialog(*this, message, false, Gtk::MESSAGE_INFO);
+            dialog.run();
+        } else {
+            Gtk::MessageDialog dialog(*this, "Invalid credentials!", false, Gtk::MESSAGE_ERROR);
+            dialog.run();
+        }
+    }
+};
+
+int main(int argc, char* argv[]) {
+    auto app = Gtk::Application::create(argc, argv, "com.example.login");
+    LoginWindow window;
+
+    // Setup SQLite Database
+    sqlite3* db;
+    sqlite3_open("users.db", &db);
+    std::string create_table_query = R"(
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            role TEXT NOT NULL
+        );
+    )";
+    sqlite3_exec(db, create_table_query.c_str(), nullptr, nullptr, nullptr);
+
+    // Add a test admin and user
+    std::string insert_test_users = R"(
+        INSERT OR IGNORE INTO users (username, password, role) VALUES
+        ('admin', 'admin123', 'admin'),
+        ('user', 'user123', 'user');
+    )";
+    sqlite3_exec(db, insert_test_users.c_str(), nullptr, nullptr, nullptr);
+    sqlite3_close(db);
+
+    return app->run(window);
+}

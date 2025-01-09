@@ -17,6 +17,7 @@ private:
     Gtk::Label password_label;
     Gtk::Entry password_entry;
     Gtk::Button login_button;
+    Gtk::Label error_label;
     std::string username; 
     std::string password;
 
